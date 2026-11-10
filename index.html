@@ -96,6 +96,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
         <button id="locationBtn">Enable GPS</button>
         <button id="compassBtn">Enable Compass</button>
         <button id="networkBtn">Network Info</button>
+        <button class="primary wide" id="sweepBtn">Start 360° Sweep</button>
       </div>
       <div class="panel">
         <div class="panel-head"><strong>NEAREST DEVICE</strong><span class="tag" id="nearTag">--</span></div>
@@ -112,7 +113,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
           <p><b>GPS:</b> Reports your phone's location only. It does not reveal GPS satellite direction or signal strength.</p>
           <p><b>Compass:</b> Uses your phone's magnetometer. The arrow at the top shows the direction you're facing (the back of the phone when held upright, the top edge when held flat). Calibrate by waving the phone in a figure-8 if it drifts.</p>
           <p><b>Wi-Fi / cellular / general RF:</b> Mobile websites cannot scan Wi-Fi channels, identify cell towers, or measure arbitrary radio frequencies. Those require native software or external radio hardware.</p>
-          <p><b>Direction of signals:</b> The browser can't read a transmitter's true bearing. Instead, the app logs signal strength (RSSI) at each compass heading while you turn, and pins the device in the direction where it was strongest. Pins stay fixed to the world and move around the dial as you rotate. It is an estimate: turn slowly in a full circle, hold the phone steady, and expect walls and your body to skew it. Distance from center is a rough guide from signal strength.</p>
+          <p><b>Direction of signals (sweep):</b> Add a device, enable the compass, tap Start 360° Sweep and turn slowly in a full circle (about 20 seconds, phone steady in front of you). The app compares signal strength at each heading and pins the device where it was strongest. Pins then stay fixed to the world and move toward the center as you get closer. Accuracy is roughly ±45° at best. It is unreliable indoors and meaningless when the device is almost touching you. The browser cannot read a true bearing, and many devices (classic Bluetooth audio, devices already connected elsewhere) never show up at all.</p>
         </div>
       </div>
     </section>
@@ -246,9 +247,7 @@ function headingFromEuler(alpha,beta,gamma){
   const cY=Math.cos(y),sY=Math.sin(y),cZ=Math.cos(z),sZ=Math.sin(z),sX=Math.sin(x),cX=Math.cos(x);
   const Vx=-cZ*sY-sZ*sX*cY;
   const Vy=-sZ*sY+cZ*sX*cY;
-  // The device's outward-facing axis points opposite the old X component.
-  // Negating it fixes the mirrored east/west heading on upright Android phones.
-  let h=Math.atan2(-Vx,Vy);
+  let h=Math.atan2(Vx,Vy);
   if(h<0)h+=2*Math.PI;
   return h/r;
 }
@@ -307,54 +306,90 @@ async function enableCompass(){
 }
 requestAnimationFrame(animateDial);
 
-/* ---------- World-anchored BLE bearing estimate ---------- */
+/* ---------- BLE direction finding by 360° sweep ---------- */
+const NB=18, BW=360/NB;               // 18 bins of 20°
 const bleDevs=new Map();
+let advCount=0, sweepActive=false, sweepCov=[];
 const norm=a=>((a%360)+360)%360;
 function edgeFor(rel){return (rel<45||rel>=315)?'top':rel<135?'right':rel<225?'bottom':'left'}
 function rippleAt(name){const el=$('edge-'+name);el.classList.remove('active');void el.offsetWidth;el.classList.add('active');setTimeout(()=>el.classList.remove('active'),1900)}
+function curHeading(){return norm(shown===null?heading:shown)}
+function pinDevice(d){
+  if(d.brg===null||d.rssi===null)return;
+  const t=Math.max(0,Math.min(1,(d.rssi+95)/60));
+  const r=46-t*36;                                    // stronger signal = nearer the center
+  if(!d.el){d.el=document.createElement('i');d.el.className='mark';$('dial').append(d.el)}
+  d.el.style.left=(50+Math.sin(d.brg*Math.PI/180)*r)+'%';
+  d.el.style.top=(50-Math.cos(d.brg*Math.PI/180)*r)+'%';
+}
 function onAdvert(e){
   const id=e.device.id||e.device.name||'unknown';
   const name=e.device.name||('Unnamed device '+String(id).slice(-4));
   const hasRssi=Number.isFinite(e.rssi);
   let d=bleDevs.get(id);
-  if(!d){d={bins:new Array(36).fill(null),el:null,seen:0,pulseAt:0,rssi:null,name};bleDevs.set(id,d)}
-  const now=Date.now();d.seen=now;d.name=name;
-  if(hasRssi)d.rssi=d.rssi===null?e.rssi:d.rssi*0.45+e.rssi*0.55;
-  if(!hasRssi||!compassOn||!gotReading){
-    addEvent(name,hasRssi?`RSSI ${Math.round(e.rssi)} dBm · enable compass to locate`:'Signal level unavailable','BLE');
-    if(!compassOn)$('radarNote').textContent='ENABLE COMPASS TO LOCATE SIGNALS';
-    return;
+  if(!d){d={bins:new Array(NB).fill(null),el:null,seen:0,pulseAt:0,rssi:null,name,brg:null,conf:null,contrast:0};bleDevs.set(id,d)}
+  const now=Date.now();d.seen=now;d.name=name;advCount++;
+  if(hasRssi)d.rssi=d.rssi===null?e.rssi:d.rssi*0.7+e.rssi*0.3;
+  if(sweepActive&&hasRssi&&compassOn&&gotReading){
+    const bi=Math.floor(curHeading()/BW)%NB;
+    const b=d.bins[bi]||(d.bins[bi]={s:0,n:0});b.s+=e.rssi;b.n++;
   }
-  const h=norm(heading);
-  const bi=Math.floor(h/5)%72;
-  if(d.bins.length!==72)d.bins=new Array(72).fill(null);
-  d.bins[bi]=d.bins[bi]===null?e.rssi:d.bins[bi]*0.55+e.rssi*0.45;
-  let max=-999,min=999,cov=0;
-  d.bins.forEach(v=>{if(v!==null){cov++;if(v>max)max=v;if(v<min)min=v}});
-  let sx=0,sy=0;
-  d.bins.forEach((v,i)=>{if(v===null)return;const w=Math.pow(10,(v-max)/10),a=(i*5+2.5)*Math.PI/180;sx+=w*Math.sin(a);sy+=w*Math.cos(a)});
-  const brg=norm(Math.atan2(sx,sy)*180/Math.PI);
-  const conf=(cov>=8&&max-min>=6)?'GOOD':cov>=3?'FAIR':'ROUGH · KEEP TURNING';
-  const t=Math.max(0,Math.min(1,(max+95)/60));
-  const r=46-t*36;
-  if(!d.el){d.el=document.createElement('i');d.el.className='mark';$('dial').append(d.el)}
-  d.el.style.left=(50+Math.sin(brg*Math.PI/180)*r)+'%';
-  d.el.style.top=(50-Math.cos(brg*Math.PI/180)*r)+'%';
-  d.el.classList.remove('stale');
-  if(now-d.pulseAt>900){d.pulseAt=now;d.el.classList.remove('pulse');void d.el.offsetWidth;d.el.classList.add('pulse');rippleAt(edgeFor(norm(brg-h)))}
-  addEvent(name,`BRG ${Math.round(brg)}° ${CARDS[Math.round(brg/45)%8]} · RSSI ${Math.round(max)} dBm · ${conf}`,'BLE');
+  let detail;
+  if(d.brg!==null){
+    pinDevice(d);d.el.classList.remove('stale');
+    detail=`BRG ${Math.round(d.brg)}° ${CARDS[Math.round(d.brg/45)%8]} · RSSI ${Math.round(d.rssi)} dBm · ${d.conf}`;
+    if(now-d.pulseAt>900){d.pulseAt=now;d.el.classList.remove('pulse');void d.el.offsetWidth;d.el.classList.add('pulse');rippleAt(edgeFor(norm(d.brg-curHeading())))}
+  }else if(!hasRssi)detail='Signal level unavailable';
+  else detail=`RSSI ${Math.round(d.rssi)} dBm · `+(sweepActive?'sweeping…':'no bearing yet, tap Start 360° Sweep');
+  addEvent(name,detail,'BLE');
 }
-setInterval(()=>{const now=Date.now();bleDevs.forEach((d,id)=>{const age=now-d.seen;if(age>60000){if(d.el)d.el.remove();bleDevs.delete(id)}else if(d.el)d.el.classList.toggle('stale',age>15000)})},2000);
+function startSweep(){
+  if(sweepActive){finalizeSweep();return}
+  if(!compassOn||!gotReading){showError('ENABLE THE COMPASS FIRST');return}
+  if(bleDevs.size===0){showError('ADD A BLUETOOTH DEVICE FIRST (NO SIGNALS YET)');return}
+  bleDevs.forEach(d=>{d.bins=new Array(NB).fill(null)});
+  sweepCov=new Array(NB).fill(false);sweepActive=true;
+  $('sweepBtn').textContent='Finish Sweep';setStatus('SWEEPING');
+}
+function finalizeSweep(){
+  sweepActive=false;$('sweepBtn').textContent='Start 360° Sweep';setStatus('ACTIVE');
+  let located=0;
+  bleDevs.forEach(d=>{
+    const avg=d.bins.map(b=>b?b.s/b.n:null);
+    const clear=()=>{d.brg=null;d.conf=null;if(d.el){d.el.remove();d.el=null}};
+    if(avg.filter(v=>v!==null).length<10){clear();addEvent(d.name,'Not enough readings while turning · sweep again, slower','BLE');return}
+    const sc=avg.map((_,i)=>{let s=0,w=0;[[-1,.25],[0,.5],[1,.25]].forEach(([o,k])=>{const v=avg[(i+o+NB)%NB];if(v!==null){s+=v*k;w+=k}});return w?s/w:null});
+    let pk=-1,pv=-999,sum=0,cnt=0;
+    sc.forEach((v,i)=>{if(v===null)return;sum+=v;cnt++;if(v>pv){pv=v;pk=i}});
+    const contrast=pv-sum/cnt;d.contrast=contrast;
+    if(contrast<3){clear();addEvent(d.name,`No clear direction (only ${contrast.toFixed(1)} dB variation) · probably very close, or bouncing off walls`,'BLE');return}
+    let sx=0,sy=0;
+    [-1,0,1].forEach(o=>{const i=(pk+o+NB)%NB,v=sc[i];if(v===null)return;const w=Math.pow(10,(v-pv)/10),a=(i*BW+BW/2)*Math.PI/180;sx+=w*Math.sin(a);sy+=w*Math.cos(a)});
+    d.brg=norm(Math.atan2(sx,sy)*180/Math.PI);
+    d.conf=contrast>=6?'GOOD':'FAIR';
+    located++;pinDevice(d);
+    addEvent(d.name,`BRG ${Math.round(d.brg)}° ${CARDS[Math.round(d.brg/45)%8]} · RSSI ${Math.round(d.rssi)} dBm · ${d.conf} (+${contrast.toFixed(0)} dB)`,'BLE');
+  });
+  $('radarNote').textContent=located?'SWEEP DONE · PINS FIXED TO WORLD DIRECTIONS':'SWEEP DONE · NO CLEAR DIRECTION FOUND';
+}
+setInterval(()=>{
+  if(!sweepActive)return;
+  sweepCov[Math.floor(curHeading()/BW)%NB]=true;
+  const c=sweepCov.filter(Boolean).length;
+  $('radarNote').textContent=`SWEEPING ${Math.round(c/NB*100)}% · TURN SLOWLY, PHONE STEADY`;
+  if(c>=NB-2)finalizeSweep();
+},150);
+setInterval(()=>{const now=Date.now();bleDevs.forEach((d,id)=>{const age=now-d.seen;if(age>300000){if(d.el)d.el.remove();bleDevs.delete(id)}else if(d.el)d.el.classList.toggle('stale',age>15000)})},2000);
 
 setInterval(()=>{
   const now=Date.now();let best=null;
   bleDevs.forEach(d=>{if(d.rssi!==null&&now-d.seen<6000&&(best===null||d.rssi>best.rssi))best=d});
-  if(!best)return;
+  if(!best){if(advCount===0&&(watched.size||bleScan))$('nearTag').textContent='NO ADVERTS YET';return}
   const lvl=best.rssi>-50?'VERY CLOSE':best.rssi>-65?'NEAR':best.rssi>-80?'IN RANGE':'FAR';
   $('nearTag').textContent=lvl;
   const box=$('nearest');box.innerHTML='';
   const n=document.createElement('div');n.className='event-name';n.style.fontSize='18px';n.textContent=best.name;
-  const dt=document.createElement('div');dt.className='event-detail';dt.textContent='RSSI '+Math.round(best.rssi)+' dBm · rough proximity from signal strength';
+  const dt=document.createElement('div');dt.className='event-detail';dt.textContent='RSSI '+Math.round(best.rssi)+' dBm · rough proximity · '+advCount+' adverts received';
   box.append(n,dt);
 },700);
 function showNetwork(){
@@ -365,6 +400,7 @@ function showNetwork(){
   $('networkBtn').disabled=true;
 }
 $('networkBtn').addEventListener('click',showNetwork);
+$('sweepBtn').addEventListener('click',startSweep);
 $('bluetoothBtn').addEventListener('click',scanBluetooth);
 $('locationBtn').addEventListener('click',enableLocation);
 $('compassBtn').addEventListener('click',enableCompass);
