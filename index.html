@@ -97,6 +97,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
         <button id="compassBtn">Enable Compass</button>
         <button id="networkBtn">Network Info</button>
         <button class="primary wide" id="sweepBtn">Start 360° Sweep</button>
+        <button class="wide" id="pinBtn">Pin Device Where I'm Facing</button>
       </div>
       <div class="panel">
         <div class="panel-head"><strong>NEAREST DEVICE</strong><span class="tag" id="nearTag">--</span></div>
@@ -153,13 +154,6 @@ function ripple(){
   edge.classList.remove('active');void edge.offsetWidth;edge.classList.add('active');
   setTimeout(()=>edge.classList.remove('active'),1900);
 }
-function addBlip(){
-  const b=document.createElement('i');b.className='mark pulse';
-  const deg=(compassOn&&gotReading)?(shown===null?heading:shown):0;
-  const brg=deg*Math.PI/180, r=18+Math.random()*28;
-  b.style.left=(50+Math.sin(brg)*r)+'%';b.style.top=(50-Math.cos(brg)*r)+'%';
-  $('dial').append(b);setTimeout(()=>b.remove(),6000);ripple();
-}
 function showError(err){
   $('radarNote').textContent=err;
   setStatus('LIMITED');
@@ -195,8 +189,11 @@ async function scanBluetooth(){
         $('radarNote').textContent='TRACKING · TURN SLOWLY 360° OR WALK UP TO IT';
         $('bluetoothBtn').textContent='Add Another Device';setStatus('SCANNING');
       }else{
-        addEvent(name,'Selected · this browser gives no live signal strength','BLE');addBlip();
-        $('scanTag').textContent='DEVICE SELECTED';$('radarNote').textContent='NO LIVE SIGNAL DATA IN THIS BROWSER';setStatus('CONNECTED');
+        const did=device.id||name;
+        if(!bleDevs.has(did))bleDevs.set(did,{bins:new Array(NB).fill(null),el:null,seen:Date.now(),pulseAt:0,rssi:null,name,brg:null,conf:null,contrast:0,manual:true});
+        lastDev=bleDevs.get(did);
+        addEvent(name,"No signal data from this browser, so it can't be located automatically. Face the device and tap Pin Device Where I'm Facing.",'BLE');
+        $('scanTag').textContent='NO SIGNAL DATA';$('radarNote').textContent="THIS BROWSER GIVES NO SIGNAL STRENGTH · USE MANUAL PIN";setStatus('LIMITED');
       }
     }
   }catch(e){
@@ -309,14 +306,14 @@ requestAnimationFrame(animateDial);
 /* ---------- BLE direction finding by 360° sweep ---------- */
 const NB=18, BW=360/NB;               // 18 bins of 20°
 const bleDevs=new Map();
-let advCount=0, sweepActive=false, sweepCov=[];
+let lastDev=null, advCount=0, sweepActive=false, sweepCov=[];
 const norm=a=>((a%360)+360)%360;
 function edgeFor(rel){return (rel<45||rel>=315)?'top':rel<135?'right':rel<225?'bottom':'left'}
 function rippleAt(name){const el=$('edge-'+name);el.classList.remove('active');void el.offsetWidth;el.classList.add('active');setTimeout(()=>el.classList.remove('active'),1900)}
 function curHeading(){return norm(shown===null?heading:shown)}
 function pinDevice(d){
-  if(d.brg===null||d.rssi===null)return;
-  const t=Math.max(0,Math.min(1,(d.rssi+95)/60));
+  if(d.brg===null)return;
+  const t=d.rssi===null?0.5:Math.max(0,Math.min(1,(d.rssi+95)/60));
   const r=46-t*36;                                    // stronger signal = nearer the center
   if(!d.el){d.el=document.createElement('i');d.el.className='mark';$('dial').append(d.el)}
   d.el.style.left=(50+Math.sin(d.brg*Math.PI/180)*r)+'%';
@@ -328,7 +325,7 @@ function onAdvert(e){
   const hasRssi=Number.isFinite(e.rssi);
   let d=bleDevs.get(id);
   if(!d){d={bins:new Array(NB).fill(null),el:null,seen:0,pulseAt:0,rssi:null,name,brg:null,conf:null,contrast:0};bleDevs.set(id,d)}
-  const now=Date.now();d.seen=now;d.name=name;advCount++;
+  const now=Date.now();d.seen=now;d.name=name;advCount++;lastDev=d;
   if(hasRssi)d.rssi=d.rssi===null?e.rssi:d.rssi*0.7+e.rssi*0.3;
   if(sweepActive&&hasRssi&&compassOn&&gotReading){
     const bi=Math.floor(curHeading()/BW)%NB;
@@ -342,6 +339,14 @@ function onAdvert(e){
   }else if(!hasRssi)detail='Signal level unavailable';
   else detail=`RSSI ${Math.round(d.rssi)} dBm · `+(sweepActive?'sweeping…':'no bearing yet, tap Start 360° Sweep');
   addEvent(name,detail,'BLE');
+}
+function pinHere(){
+  if(!compassOn||!gotReading){showError('ENABLE THE COMPASS FIRST');return}
+  if(!lastDev){showError('ADD A BLUETOOTH DEVICE FIRST');return}
+  const d=lastDev;d.brg=curHeading();d.conf='MANUAL';d.manual=true;
+  pinDevice(d);d.el.classList.remove('stale');
+  addEvent(d.name,`BRG ${Math.round(d.brg)}° ${CARDS[Math.round(d.brg/45)%8]} · pinned by you`,'BLE');
+  $('radarNote').textContent='PINNED · FIXED TO THIS WORLD DIRECTION';
 }
 function startSweep(){
   if(sweepActive){finalizeSweep();return}
@@ -379,7 +384,7 @@ setInterval(()=>{
   $('radarNote').textContent=`SWEEPING ${Math.round(c/NB*100)}% · TURN SLOWLY, PHONE STEADY`;
   if(c>=NB-2)finalizeSweep();
 },150);
-setInterval(()=>{const now=Date.now();bleDevs.forEach((d,id)=>{const age=now-d.seen;if(age>300000){if(d.el)d.el.remove();bleDevs.delete(id)}else if(d.el)d.el.classList.toggle('stale',age>15000)})},2000);
+setInterval(()=>{const now=Date.now();bleDevs.forEach((d,id)=>{const age=now-d.seen;if(age>300000&&!d.manual){if(d.el)d.el.remove();bleDevs.delete(id)}else if(d.el)d.el.classList.toggle('stale',age>15000&&!d.manual)})},2000);
 
 setInterval(()=>{
   const now=Date.now();let best=null;
@@ -401,6 +406,7 @@ function showNetwork(){
 }
 $('networkBtn').addEventListener('click',showNetwork);
 $('sweepBtn').addEventListener('click',startSweep);
+$('pinBtn').addEventListener('click',pinHere);
 $('bluetoothBtn').addEventListener('click',scanBluetooth);
 $('locationBtn').addEventListener('click',enableLocation);
 $('compassBtn').addEventListener('click',enableCompass);
