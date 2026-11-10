@@ -25,6 +25,9 @@ h1{font-size:clamp(22px,5vw,32px);margin:0;letter-spacing:.04em}.sub{color:var(-
 .center-dot{position:absolute;width:7px;height:7px;border-radius:50%;background:#a6fff4;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 12px #55e8e1;z-index:1}
 .blip{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green);z-index:1;animation:blip 2s ease-out infinite}
 @keyframes blip{0%{box-shadow:0 0 0 0 #82ffb188}100%{box-shadow:0 0 0 13px #82ffb100}}
+.mark{position:absolute;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green);z-index:2;transition:opacity .5s}
+.mark.pulse{animation:blip 1.4s ease-out}
+.mark.stale{opacity:.3}
 /* compass dial: rotates opposite to heading so the facing direction is always "up" */
 .dial{position:absolute;inset:0;border-radius:50%;z-index:1;will-change:transform}
 .tick{position:absolute;inset:0}
@@ -104,7 +107,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
           <p><b>GPS:</b> Reports your phone's location only. It does not reveal GPS satellite direction or signal strength.</p>
           <p><b>Compass:</b> Uses your phone's magnetometer. The arrow at the top shows the direction you're facing (the back of the phone when held upright, the top edge when held flat). Calibrate by waving the phone in a figure-8 if it drifts.</p>
           <p><b>Wi-Fi / cellular / general RF:</b> Mobile websites cannot scan Wi-Fi channels, identify cell towers, or measure arbitrary radio frequencies. Those require native software or external radio hardware.</p>
-          <p><b>Direction of signals:</b> A normal phone browser cannot tell which direction a Bluetooth transmitter is located. Radar blips and edge ripples are visual indicators, not a bearing measurement.</p>
+          <p><b>Direction of signals:</b> The browser can't read a transmitter's true bearing. Instead, the app logs signal strength (RSSI) at each compass heading while you turn, and pins the device in the direction where it was strongest. Pins stay fixed to the world and move around the dial as you rotate. It is an estimate: turn slowly in a full circle, hold the phone steady, and expect walls and your body to skew it. Distance from center is a rough guide from signal strength.</p>
         </div>
       </div>
     </section>
@@ -162,11 +165,9 @@ async function scanBluetooth(){
     if(typeof navigator.bluetooth.requestLEScan==='function'){
       bleScan=await navigator.bluetooth.requestLEScan({acceptAllAdvertisements:true,keepRepeatedDevices:true});
       navigator.bluetooth.addEventListener('advertisementreceived',e=>{
-        const name=e.device.name||'Unnamed Bluetooth device';
-        const rssi=Number.isFinite(e.rssi)?`RSSI ${e.rssi} dBm`:'Signal level unavailable';
-        addEvent(name,rssi,'BLE');addBlip();
+        onAdvert(e);
       });
-      $('scanTag').textContent='BLE LIVE';$('radarNote').textContent='LISTENING FOR BLE ADVERTISEMENTS';setStatus('SCANNING');
+      $('scanTag').textContent='BLE LIVE';$('radarNote').textContent='TURN SLOWLY 360° TO LOCATE SIGNALS';setStatus('SCANNING');
     }else{
       const device=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[]});
       addEvent(device.name||'Unnamed Bluetooth device','Selected in browser device chooser; not a direction or distance reading','BLE');
@@ -278,6 +279,43 @@ async function enableCompass(){
   }
 }
 requestAnimationFrame(animateDial);
+
+/* ---------- World-anchored BLE bearing estimate ---------- */
+const bleDevs=new Map();
+const norm=a=>((a%360)+360)%360;
+function edgeFor(rel){return (rel<45||rel>=315)?'top':rel<135?'right':rel<225?'bottom':'left'}
+function rippleAt(name){const el=$('edge-'+name);el.classList.remove('active');void el.offsetWidth;el.classList.add('active');setTimeout(()=>el.classList.remove('active'),1900)}
+function onAdvert(e){
+  const id=e.device.id||e.device.name||'unknown';
+  const name=e.device.name||('Unnamed device '+String(id).slice(-4));
+  const hasRssi=Number.isFinite(e.rssi);
+  if(!hasRssi||!compassOn||!gotReading){
+    addEvent(name,hasRssi?`RSSI ${e.rssi} dBm · enable compass to locate`:'Signal level unavailable','BLE');
+    if(!compassOn)$('radarNote').textContent='ENABLE COMPASS TO LOCATE SIGNALS';
+    addBlip();return;
+  }
+  let d=bleDevs.get(id);
+  if(!d){d={bins:new Array(36).fill(null),el:null,seen:0,pulseAt:0};bleDevs.set(id,d)}
+  const now=Date.now();d.seen=now;
+  const h=norm(shown===null?heading:shown);
+  const bi=Math.floor(h/10)%36;
+  d.bins[bi]=d.bins[bi]===null?e.rssi:d.bins[bi]*0.6+e.rssi*0.4;
+  let max=-999,min=999,cov=0;
+  d.bins.forEach(v=>{if(v!==null){cov++;if(v>max)max=v;if(v<min)min=v}});
+  let sx=0,sy=0;
+  d.bins.forEach((v,i)=>{if(v===null)return;const w=Math.pow(10,(v-max)/10),a=(i*10+5)*Math.PI/180;sx+=w*Math.sin(a);sy+=w*Math.cos(a)});
+  const brg=norm(Math.atan2(sx,sy)*180/Math.PI);
+  const conf=(cov>=8&&max-min>=6)?'GOOD':cov>=3?'FAIR':'ROUGH · KEEP TURNING';
+  const t=Math.max(0,Math.min(1,(max+95)/60));
+  const r=46-t*36;                                   // stronger signal = closer to center
+  if(!d.el){d.el=document.createElement('i');d.el.className='mark';$('dial').append(d.el)}
+  d.el.style.left=(50+Math.sin(brg*Math.PI/180)*r)+'%';
+  d.el.style.top=(50-Math.cos(brg*Math.PI/180)*r)+'%';
+  d.el.classList.remove('stale');
+  if(now-d.pulseAt>900){d.pulseAt=now;d.el.classList.remove('pulse');void d.el.offsetWidth;d.el.classList.add('pulse');rippleAt(edgeFor(norm(brg-h)))}
+  addEvent(name,`BRG ${Math.round(brg)}° ${CARDS[Math.round(brg/45)%8]} · RSSI ${Math.round(max)} dBm · ${conf}`,'BLE');
+}
+setInterval(()=>{const now=Date.now();bleDevs.forEach((d,id)=>{const age=now-d.seen;if(age>60000){if(d.el)d.el.remove();bleDevs.delete(id)}else if(d.el)d.el.classList.toggle('stale',age>15000)})},2000);
 
 $('bluetoothBtn').addEventListener('click',scanBluetooth);
 $('locationBtn').addEventListener('click',enableLocation);
