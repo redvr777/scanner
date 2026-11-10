@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,900 +5,435 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05090d">
 <title>Signal Radar</title>
-
 <style>
-:root {
-    color-scheme: dark;
-    --bg: #05090d;
-    --cyan: #55e8e1;
-    --green: #82ffb1;
-    --muted: #7d969d;
-    --text: #e7f7f6;
-    --amber: #ffc76a;
-}
+:root{color-scheme:dark;--bg:#05090d;--panel:#0b141b;--line:#17313a;--cyan:#55e8e1;--green:#82ffb1;--muted:#7d969d;--text:#e7f7f6;--amber:#ffc76a}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 50% 38%,#10252b 0%,#071116 44%,#030609 100%);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100svh;overflow-x:hidden}
+header{display:flex;justify-content:space-between;align-items:center;padding:calc(15px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #173039;background:#050b0fcc;position:relative;z-index:2}
+.brand{font-weight:800;letter-spacing:.18em;font-size:13px}.brand span{color:var(--cyan)}
+.status{font-size:11px;color:var(--green);letter-spacing:.12em}.status:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:8px;box-shadow:0 0 10px var(--green)}
+main{max-width:900px;margin:auto;padding:18px 14px 34px}
+.topline{display:flex;justify-content:space-between;gap:10px;align-items:end;margin:3px 3px 14px}
+h1{font-size:clamp(22px,5vw,32px);margin:0;letter-spacing:.04em}.sub{color:var(--muted);font-size:12px;margin-top:3px}
+.clock{font:12px ui-monospace,monospace;color:var(--cyan);text-align:right}
+.radar-wrap{position:relative;min-height:350px;display:grid;place-items:center;border:1px solid #18333b;border-radius:18px;background:linear-gradient(145deg,#0a171d,#050c11);overflow:hidden;box-shadow:0 18px 60px #0008,inset 0 0 45px #102c3040}
+.radar-wrap:before,.radar-wrap:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent 49.8%,#21414a55 50%,transparent 50.2%),linear-gradient(0deg,transparent 49.8%,#21414a55 50%,transparent 50.2%)}
+.radar{width:min(76vw,310px);aspect-ratio:1;border-radius:50%;position:relative;border:1px solid #2d6870;background:repeating-radial-gradient(circle,transparent 0 19%,#1b555d77 19.3% 19.7%,transparent 20% 24.5%),linear-gradient(90deg,transparent 49.7%,#28636a66 50%,transparent 50.3%),linear-gradient(0deg,transparent 49.7%,#28636a66 50%,transparent 50.3%),radial-gradient(circle,#12383a 0%,#0b2026 65%,#071319 100%);box-shadow:0 0 35px #36d8cf18,inset 0 0 35px #0009;overflow:hidden}
+.radar:before{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 78%,#65ffe033 90%,#65ffe0aa 100%);animation:sweep 5s linear infinite}
+.radar:after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at center,#55e8e11a 0 1px,transparent 2px)}
+@keyframes sweep{to{transform:rotate(360deg)}}
+.center-dot{position:absolute;width:9px;height:9px;border-radius:50%;background:#fff;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 12px #55e8e1;z-index:5}
+.heading-line{position:absolute;left:50%;top:50%;width:2px;height:44%;background:linear-gradient(to top,transparent,var(--cyan));transform-origin:bottom center;transform:translate(-50%,-100%) rotate(0deg);z-index:3;pointer-events:none;opacity:.95}
+.heading-tip{position:absolute;left:50%;top:5%;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid var(--cyan);transform:translateX(-50%);filter:drop-shadow(0 0 5px var(--cyan))}
+.signal-marker{position:absolute;width:16px;height:16px;border-radius:50%;background:var(--green);border:2px solid #eafff3;box-shadow:0 0 15px var(--green);z-index:4;transform:translate(-50%,-50%);display:none}
+.signal-marker:after{content:"";position:absolute;inset:-8px;border:1px solid var(--green);border-radius:50%;animation:signalPulse 1.6s ease-out infinite}
+@keyframes signalPulse{from{transform:scale(.55);opacity:.9}to{transform:scale(1.7);opacity:0}}
+.compass-panel{text-align:center}
+.compass-number{font:28px ui-monospace,monospace;color:var(--cyan)}
+.compass-direction{color:var(--green);font-size:12px}
+.signal-value{font:26px ui-monospace,monospace;color:var(--cyan)}
+.signal-track{height:11px;background:#142a31;border-radius:20px;overflow:hidden;margin-top:10px}
+.signal-fill{height:100%;width:0%;background:var(--cyan);transition:width .25s}
+.best-reading{font-size:11px;color:var(--muted);margin-top:9px}
 
-* { box-sizing: border-box; }
-
-body {
-    margin: 0;
-    background: radial-gradient(ellipse at 50% 38%, #10252b, #030609);
-    color: var(--text);
-    font: 14px/1.45 system-ui, sans-serif;
-    min-height: 100svh;
-}
-
-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: calc(15px + env(safe-area-inset-top)) 18px 14px;
-    border-bottom: 1px solid #173039;
-    background: #050b0fcc;
-}
-
-.brand { font-weight: 800; letter-spacing: .18em; }
-.brand span { color: var(--cyan); }
-.status { color: var(--green); font-size: 11px; letter-spacing: .12em; }
-
-main { max-width: 950px; margin: auto; padding: 18px 14px 34px; }
-
-.topline {
-    display: flex;
-    justify-content: space-between;
-    align-items: end;
-    margin-bottom: 14px;
-}
-
-h1 { font-size: clamp(22px, 5vw, 32px); margin: 0; }
-.sub { color: var(--muted); font-size: 12px; }
-.clock { font: 12px monospace; color: var(--cyan); }
-
-.layout { display: grid; gap: 12px; }
-
-.radar-wrap {
-    position: relative;
-    min-height: 370px;
-    display: grid;
-    place-items: center;
-    border: 1px solid #18333b;
-    border-radius: 18px;
-    background: linear-gradient(145deg, #0a171d, #050c11);
-    overflow: hidden;
-}
-
-.radar {
-    width: min(78vw, 330px);
-    aspect-ratio: 1;
-    border-radius: 50%;
-    position: relative;
-    border: 1px solid #2d6870;
-    background:
-        repeating-radial-gradient(circle, transparent 0 19%, #1b555d77 19.3% 19.7%, transparent 20% 24.5%),
-        linear-gradient(90deg, transparent 49.7%, #28636a66 50%, transparent 50.3%),
-        linear-gradient(0deg, transparent 49.7%, #28636a66 50%, transparent 50.3%),
-        radial-gradient(circle, #12383a, #071319);
-    box-shadow: 0 0 35px #36d8cf18, inset 0 0 35px #0009;
-    overflow: hidden;
-}
-
-.radar:before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: conic-gradient(from 0deg, transparent 0 78%, #65ffe033 90%, #65ffe088 100%);
-    animation: sweep 5s linear infinite;
-    pointer-events: none;
-}
-
-@keyframes sweep {
-    to { transform: rotate(360deg); }
-}
-
-.radar-label {
-    position: absolute;
-    color: #6c9b9e;
-    font: 11px monospace;
-    z-index: 5;
-}
-
-.north { top: 8px; left: 50%; transform: translateX(-50%); }
-.east { right: 8px; top: 50%; transform: translateY(-50%); }
-.south { bottom: 8px; left: 50%; transform: translateX(-50%); }
-.west { left: 8px; top: 50%; transform: translateY(-50%); }
-
-.center-dot {
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: white;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 0 15px var(--cyan);
-    z-index: 8;
-}
-
-.heading-line {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 2px;
-    height: 46%;
-    background: linear-gradient(to top, transparent, var(--cyan));
-    transform-origin: bottom center;
-    transform: translate(-50%, -100%) rotate(0deg);
-    z-index: 4;
-    pointer-events: none;
-    opacity: .85;
-}
-
-.heading-tip {
-    position: absolute;
-    left: 50%;
-    top: 4%;
-    width: 0;
-    height: 0;
-    border-left: 7px solid transparent;
-    border-right: 7px solid transparent;
-    border-bottom: 15px solid var(--cyan);
-    transform: translateX(-50%);
-    filter: drop-shadow(0 0 5px var(--cyan));
-}
-
-.phone-marker {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 9;
-    font-size: 13px;
-    color: white;
-}
-
-.signal-marker {
-    position: absolute;
-    width: 17px;
-    height: 17px;
-    border-radius: 50%;
-    background: var(--green);
-    border: 2px solid white;
-    box-shadow: 0 0 15px var(--green);
-    z-index: 7;
-    transform: translate(-50%, -50%);
-    transition: left .3s, top .3s;
-    display: none;
-}
-
-.signal-marker:after {
-    content: "";
-    position: absolute;
-    inset: -9px;
-    border: 1px solid var(--green);
-    border-radius: 50%;
-    animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-    from { transform: scale(.5); opacity: 1; }
-    to { transform: scale(1.7); opacity: 0; }
-}
-
-.radar-note {
-    position: absolute;
-    bottom: 13px;
-    left: 0;
-    right: 0;
-    text-align: center;
-    color: var(--muted);
-    font: 10px monospace;
-    letter-spacing: .1em;
-}
-
-.panel, .metric {
-    border: 1px solid #18333b;
-    background: #09141a;
-    border-radius: 12px;
-    padding: 13px;
-    margin-top: 10px;
-}
-
-.panel-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.panel-head strong {
-    font-size: 12px;
-    letter-spacing: .12em;
-}
-
-.tag {
-    font-size: 10px;
-    color: var(--amber);
-    border: 1px solid #72562b;
-    padding: 3px 7px;
-    border-radius: 99px;
-}
-
-.metrics {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 9px;
-    margin: 12px 0;
-}
-
-.metric small { color: var(--muted); font-size: 10px; }
-.metric strong {
-    display: block;
-    font: 20px monospace;
-    color: var(--cyan);
-    margin-top: 4px;
-}
-
-.controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin: 13px 0;
-}
-
-button {
-    border: 1px solid #28616a;
-    background: #10272d;
-    color: var(--text);
-    padding: 13px;
-    border-radius: 11px;
-    font-weight: 700;
-    cursor: pointer;
-    min-height: 46px;
-}
-
-button.primary {
-    background: linear-gradient(135deg, #145c5b, #123c42);
-    border-color: var(--cyan);
-}
-
-button:disabled { opacity: .45; }
-
-.signal-value {
-    font: 30px monospace;
-    color: var(--cyan);
-}
-
-.signal-track {
-    height: 12px;
-    background: #142a31;
-    border-radius: 20px;
-    overflow: hidden;
-    margin-top: 12px;
-}
-
-.signal-bar {
-    height: 100%;
-    width: 0%;
-    background: var(--cyan);
-    transition: width .3s;
-}
-
-.event {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 0;
-    border-top: 1px solid #142a31;
-}
-
-.event-name { font-weight: 650; }
-.event-detail { color: var(--muted); font-size: 11px; }
-.event-side { color: var(--cyan); font: 11px monospace; }
-
-.empty { color: var(--muted); font-size: 12px; padding: 8px 0; }
-.notice { color: var(--muted); font-size: 12px; line-height: 1.6; }
-.footer { text-align: center; color: #526c72; font-size: 10px; padding-top: 20px; }
-
-@media(min-width:700px) {
-    .layout { grid-template-columns: 1.05fr .95fr; align-items: start; }
-    .radar-wrap { min-height: 450px; }
-    .radar { width: min(36vw, 340px); }
-}
+.blip{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green);z-index:1;animation:blip 2s ease-out infinite}
+@keyframes blip{0%{box-shadow:0 0 0 0 #82ffb188}100%{box-shadow:0 0 0 13px #82ffb100}}
+.radar-label{position:absolute;color:#6c9b9e;font:9px ui-monospace,monospace;letter-spacing:.12em;z-index:1}.north{top:10px;left:50%;transform:translateX(-50%)}.east{right:10px;top:50%;transform:translateY(-50%)}.south{bottom:10px;left:50%;transform:translateX(-50%)}.west{left:10px;top:50%;transform:translateY(-50%)}
+.edge{position:absolute;pointer-events:none;width:74px;height:74px;opacity:0;z-index:1}
+.edge:before,.edge:after{content:"";position:absolute;inset:10px;border:1px solid var(--cyan);border-radius:50%;animation:ripple 1.8s ease-out infinite}
+.edge:after{animation-delay:.6s}
+.edge.left{left:-30px;top:45%}.edge.right{right:-30px;top:28%}.edge.top{top:-30px;left:63%}.edge.bottom{bottom:-30px;left:30%}
+.edge.active{opacity:.9}
+@keyframes ripple{0%{transform:scale(.35);opacity:.9}100%{transform:scale(1.7);opacity:0}}
+.radar-note{position:absolute;bottom:13px;left:0;right:0;text-align:center;color:#719096;font:10px ui-monospace,monospace;letter-spacing:.1em}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:13px 0}
+button{border:1px solid #28616a;background:#10272d;color:var(--text);padding:13px 12px;border-radius:11px;font-weight:700;font-size:13px;cursor:pointer;min-height:46px}
+button.primary{background:linear-gradient(135deg,#145c5b,#123c42);border-color:#55cfc7;color:#eaffff}
+button:disabled{opacity:.45;cursor:not-allowed}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:12px 0}
+.metric,.panel{border:1px solid #18333b;background:#09141a;border-radius:12px;padding:12px}
+.metric small{display:block;color:var(--muted);font-size:10px;letter-spacing:.1em;text-transform:uppercase}.metric strong{display:block;font:20px ui-monospace,monospace;color:var(--cyan);margin-top:4px}
+.panel{margin-top:10px}.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}.panel-head strong{font-size:12px;letter-spacing:.12em}.tag{font-size:10px;color:var(--amber);border:1px solid #72562b;padding:3px 7px;border-radius:99px}
+.event{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #142a31}.event:first-of-type{border-top:0}.event-name{font-weight:650}.event-detail{font-size:11px;color:var(--muted);margin-top:2px}.event-side{text-align:right;color:var(--cyan);font:11px ui-monospace,monospace;white-space:nowrap}
+.empty{color:var(--muted);font-size:12px;padding:8px 0}
+.notice{font-size:11px;color:#9bb1b4;line-height:1.55}.notice b{color:#d9f5f1}
+.footer{text-align:center;color:#526c72;font-size:10px;padding:18px 8px 0}
+@media(min-width:700px){.layout{display:grid;grid-template-columns:1.05fr .95fr;gap:12px;align-items:start}.radar-wrap{min-height:450px}.radar{width:min(36vw,340px)}.rightcol{display:flex;flex-direction:column;gap:0}.controls{margin-top:0}}
 </style>
 </head>
-
 <body>
-
-<header>
-    <div class="brand">SIGNAL<span> / </span>RADAR</div>
-    <div class="status" id="status">STANDBY</div>
-</header>
-
+<header><div class="brand">SIGNAL<span> / </span>RADAR</div><div class="status" id="status">STANDBY</div></header>
 <main>
-
-<div class="topline">
-    <div>
-        <h1>Wireless Scanner</h1>
-        <div class="sub">Live compass and Bluetooth signal hunting</div>
-    </div>
-    <div class="clock" id="clock">--:--:--</div>
-</div>
-
-<div class="layout">
-
-<section>
-
-<div class="radar-wrap">
-
-    <div class="radar" id="radar">
-
-        <span class="radar-label north">N</span>
-        <span class="radar-label east">E</span>
-        <span class="radar-label south">S</span>
-        <span class="radar-label west">W</span>
-
-        <div class="heading-line" id="headingLine">
-            <div class="heading-tip"></div>
+  <div class="topline"><div><h1>Wireless scanner</h1><div class="sub">Nearby signals your browser can access</div></div><div class="clock" id="clock">--:--:--</div></div>
+  <div class="layout">
+    <section>
+      <div class="radar-wrap">
+        <div class="edge left" id="edge-left"></div><div class="edge right" id="edge-right"></div><div class="edge top" id="edge-top"></div><div class="edge bottom" id="edge-bottom"></div>
+        <div class="radar" id="radar">
+          <span class="radar-label north">N</span><span class="radar-label east">E</span><span class="radar-label south">S</span><span class="radar-label west">W</span>
+          <div class="heading-line" id="headingLine"><div class="heading-tip"></div></div>
+          <div class="signal-marker" id="signalMarker" title="Heading of strongest recorded reading"></div>
+          <div class="center-dot"></div>
         </div>
-
-        <div class="signal-marker" id="signalMarker"></div>
-        <div class="center-dot"></div>
-        <div class="phone-marker">▲</div>
-
-    </div>
-
-    <div class="radar-note" id="radarNote">
-        WAITING FOR COMPASS
-    </div>
-
-</div>
-
-<div class="metrics">
-    <div class="metric">
-        <small>Detected</small>
-        <strong id="count">0</strong>
-    </div>
-    <div class="metric">
-        <small>Bluetooth</small>
-        <strong id="btCount">0</strong>
-    </div>
-    <div class="metric">
-        <small>GPS</small>
-        <strong id="gpsState">OFF</strong>
-    </div>
-</div>
-
-<div class="panel">
-    <div class="panel-head">
-        <strong>COMPASS HEADING</strong>
-        <span class="tag" id="compassStatus">OFF</span>
-    </div>
-
-    <div style="text-align:center">
-        <div id="heading" style="font:32px monospace;color:#55e8e1">---°</div>
-        <div id="direction" style="color:#82ffb1">Waiting for compass</div>
-        <button class="primary" id="compassBtn" style="width:100%;margin-top:12px">
-            Enable Compass
-        </button>
-    </div>
-</div>
-
-<div class="panel">
-    <div class="panel-head">
-        <strong>BLUETOOTH SIGNAL</strong>
-        <span class="tag" id="signalStatus">NO SIGNAL</span>
-    </div>
-
-    <div class="signal-value" id="signalValue">--- dBm</div>
-
-    <div class="signal-track">
-        <div class="signal-bar" id="signalBar"></div>
-    </div>
-
-    <div class="notice" id="signalDescription" style="margin-top:10px">
-        Waiting for Bluetooth advertisements.
-    </div>
-
-    <div class="notice" style="margin-top:8px">
-        Strongest reading: <b id="bestSignal">---</b>
-    </div>
-
-    <div class="notice">
-        Strongest heading: <b id="bestHeading">---</b>
-    </div>
-</div>
-
-</section>
-
-<section>
-
-<div class="controls">
-    <button class="primary" id="bluetoothBtn">Scan Bluetooth</button>
-    <button id="locationBtn">Enable GPS</button>
-</div>
-
-<div class="panel">
-    <div class="panel-head">
-        <strong>DETECTED ACTIVITY</strong>
-        <span class="tag" id="scanTag">NO SCAN</span>
-    </div>
-
-    <div id="events">
-        <div class="empty">No detections yet. Start a Bluetooth scan.</div>
-    </div>
-</div>
-
-<div class="panel">
-    <div class="panel-head">
-        <strong>DIRECTION FINDING</strong>
-    </div>
-
-    <div class="notice">
-        1. Enable your compass.
-
-        <br><br>
-        2. Start Bluetooth scanning.
-
-        <br><br>
-        3. Slowly rotate your phone through a full circle.
-
-        <br><br>
-        4. Watch the signal strength as you turn.
-
-        <br><br>
-        5. The radar remembers the heading where the strongest reading was observed.
-
-        <br><br>
-        6. Move around and repeat to compare readings.
-    </div>
-
-    <button id="resetBtn" style="width:100%;margin-top:12px">
-        Reset Strongest Reading
-    </button>
-</div>
-
-<div class="panel">
-    <div class="panel-head">
-        <strong>CAPABILITIES & LIMITS</strong>
-    </div>
-
-    <div class="notice">
-        Bluetooth RSSI measures received signal strength, not distance or bearing. The strongest-heading marker is a direction recorded when a strong signal was received, not proof that the transmitter is physically in that direction.
-
-        <br><br>
-        The browser can only detect Bluetooth devices that advertise and are accessible through its Bluetooth API. Wi-Fi, cellular and arbitrary RF scanning require other hardware or software.
-    </div>
-</div>
-
-</section>
-
-</div>
-
-<div class="footer">
-SIGNAL RADAR · LIVE COMPASS · BLUETOOTH RSSI
-</div>
-
+        <div class="radar-note" id="radarNote">WAITING FOR PERMISSION</div>
+      </div>
+      <div class="panel compass-panel">
+        <div class="panel-head"><strong>PHONE COMPASS</strong><span class="tag" id="compassStatus">OFF</span></div>
+        <div class="compass-number" id="heading">---°</div>
+        <div class="compass-direction" id="direction">Waiting for compass permission</div>
+        <button class="primary" id="compassBtn" style="width:100%;margin-top:10px">Enable Compass</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><strong>LIVE BLUETOOTH SIGNAL</strong><span class="tag" id="signalStatus">NO SIGNAL</span></div>
+        <div class="signal-value" id="signalValue">--- dBm</div>
+        <div class="signal-track"><div class="signal-fill" id="signalBar"></div></div>
+        <div class="notice" id="signalDescription" style="margin-top:9px">Start a supported BLE scan to receive signal readings.</div>
+        <div class="best-reading">Strongest RSSI: <b id="bestSignal">---</b></div>
+        <div class="best-reading">Heading when strongest reading arrived: <b id="bestHeading">---</b></div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><small>Detected</small><strong id="count">0</strong></div>
+        <div class="metric"><small>Bluetooth</small><strong id="btCount">0</strong></div>
+        <div class="metric"><small>Location</small><strong id="gpsState">OFF</strong></div>
+      </div>
+    </section>
+    <section class="rightcol">
+      <div class="controls">
+        <button class="primary" id="bluetoothBtn">Scan Bluetooth</button>
+        <button id="locationBtn">Enable GPS</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><strong>DETECTED ACTIVITY</strong><span class="tag" id="scanTag">NO SCAN</span></div>
+        <div id="events"><div class="empty">No real detections yet. Start a scan and grant permission when prompted.</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><strong>CAPABILITIES & LIMITS</strong></div>
+        <div class="notice">
+          <p><b>Bluetooth:</b> On supported browsers, you can choose a nearby Bluetooth device. Some browsers also support experimental BLE scanning. The browser does not expose every device automatically.</p>
+          <p><b>GPS:</b> Reports your phone's location only. It does not reveal GPS satellite direction or signal strength.</p>
+          <p><b>Wi-Fi / cellular / general RF:</b> Mobile websites cannot scan Wi-Fi channels, identify cell towers, or measure arbitrary radio frequencies. Those require native software or external radio hardware.</p>
+          <p><b>Compass and marker:</b> The cyan arrow shows the direction your phone is facing. The green marker records the compass heading at which the strongest RSSI sample was received. It is a search clue, not a measured transmitter bearing or physical location.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="footer">SIGNAL RADAR · Browser sensor demo · Use HTTPS for device permissions</div>
 </main>
-
 <script>
-
 const $ = id => document.getElementById(id);
 
 let devices = new Map();
 let bleScan = null;
 let watchId = null;
-
+let lastPosition = null;
 let currentHeading = null;
 let bestSignal = null;
 let bestHeading = null;
-let currentAverage = null;
-
 let signalReadings = [];
-let orientationEventType = null;
+let orientationEventName = null;
+let advertisementHandler = null;
 
 function setStatus(value) {
-    $('status').textContent = value;
+  $('status').textContent = value;
 }
 
 function getCardinal(degrees) {
-    const directions = [
-        'NORTH', 'NORTHEAST', 'EAST', 'SOUTHEAST',
-        'SOUTH', 'SOUTHWEST', 'WEST', 'NORTHWEST'
-    ];
-
-    return directions[Math.round(degrees / 45) % 8];
+  const directions = ['N','NE','E','SE','S','SW','W','NW'];
+  return directions[Math.round(((degrees % 360) + 360) % 360 / 45) % 8];
 }
 
 function addEvent(name, detail, side = 'BLE') {
-
-    const key = name + '|' + side;
-
-    if (devices.has(key)) {
-        const item = devices.get(key);
-        item.time = Date.now();
-        item.detail = detail;
-    } else {
-        devices.set(key, {
-            name,
-            detail,
-            side,
-            time: Date.now()
-        });
-    }
-
-    render();
+  const key = name + '|' + side;
+  if (devices.has(key)) {
+    devices.get(key).time = Date.now();
+    devices.get(key).detail = detail;
+  } else {
+    devices.set(key, {name, detail, side, time: Date.now()});
+  }
+  render();
 }
 
 function render() {
-
-    $('count').textContent = devices.size;
-
-    $('btCount').textContent =
-        [...devices.values()].filter(x => x.side === 'BLE').length;
-
-    const list = $('events');
-    list.innerHTML = '';
-
-    if (!devices.size) {
-        list.innerHTML = '<div class="empty">No detections yet.</div>';
-        return;
-    }
-
-    [...devices.values()]
-        .sort((a, b) => b.time - a.time)
-        .slice(0, 30)
-        .forEach(device => {
-
-            const row = document.createElement('div');
-            row.className = 'event';
-
-            const left = document.createElement('div');
-
-            const name = document.createElement('div');
-            name.className = 'event-name';
-            name.textContent = device.name;
-
-            const detail = document.createElement('div');
-            detail.className = 'event-detail';
-            detail.textContent = device.detail;
-
-            left.append(name, detail);
-
-            const right = document.createElement('div');
-            right.className = 'event-side';
-            right.textContent = device.side;
-
-            row.append(left, right);
-            list.append(row);
-        });
-}
-
-function updateCompass(degrees) {
-
-    if (!Number.isFinite(degrees)) return;
-
-    degrees = (degrees + 360) % 360;
-    currentHeading = degrees;
-
-    $('heading').textContent = Math.round(degrees) + '°';
-    $('direction').textContent = getCardinal(degrees);
-    $('compassStatus').textContent = 'ACTIVE';
-    $('radarNote').textContent =
-        'COMPASS ACTIVE · ' + Math.round(degrees) + '°';
-
-    // The arrow points in the direction the phone is facing.
-    $('headingLine').style.transform =
-        `translate(-50%, -100%) rotate(${degrees}deg)`;
-
-    updateSignalMarker();
-}
-
-function updateSignalMarker() {
-
-    if (bestHeading === null) {
-        $('signalMarker').style.display = 'none';
-        return;
-    }
-
-    const marker = $('signalMarker');
-
-    // The marker represents the strongest recorded heading.
-    // Its radius is illustrative, not a distance measurement.
-    const radius = 35;
-    const radians = bestHeading * Math.PI / 180;
-
-    const x = 50 + Math.sin(radians) * radius;
-    const y = 50 - Math.cos(radians) * radius;
-
-    marker.style.left = x + '%';
-    marker.style.top = y + '%';
-    marker.style.display = 'block';
-}
-
-function handleOrientation(event) {
-
-    let heading = null;
-
-    if (Number.isFinite(event.webkitCompassHeading)) {
-        heading = event.webkitCompassHeading;
-    } else if (Number.isFinite(event.alpha)) {
-        heading = 360 - event.alpha;
-    }
-
-    if (heading !== null) {
-        updateCompass(heading);
-    }
-}
-
-async function enableCompass() {
-
-    try {
-
-        if (!('DeviceOrientationEvent' in window)) {
-            $('direction').textContent = 'Compass unavailable';
-            return;
-        }
-
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-
-            const permission =
-                await DeviceOrientationEvent.requestPermission();
-
-            if (permission !== 'granted') {
-                $('direction').textContent = 'Permission denied';
-                return;
-            }
-        }
-
-        if (orientationEventType) {
-            window.removeEventListener(
-                orientationEventType,
-                handleOrientation
-            );
-        }
-
-        orientationEventType =
-            'ondeviceorientationabsolute' in window
-                ? 'deviceorientationabsolute'
-                : 'deviceorientation';
-
-        window.addEventListener(
-            orientationEventType,
-            handleOrientation
-        );
-
-        $('compassStatus').textContent = 'STARTING';
-
-    } catch (error) {
-        $('direction').textContent = error.message;
-    }
-}
-
-function updateSignal(rssi) {
-
-    if (!Number.isFinite(rssi)) return;
-
-    signalReadings.push(rssi);
-
-    if (signalReadings.length > 10) {
-        signalReadings.shift();
-    }
-
-    const average =
-        signalReadings.reduce((a, b) => a + b, 0)
-        / signalReadings.length;
-
-    currentAverage = average;
-
-    if (bestSignal === null || average > bestSignal) {
-
-        bestSignal = average;
-
-        if (currentHeading !== null) {
-            bestHeading = currentHeading;
-
-            $('bestHeading').textContent =
-                Math.round(bestHeading) + '° ' +
-                getCardinal(bestHeading);
-
-            updateSignalMarker();
-        }
-
-        $('bestSignal').textContent =
-            Math.round(bestSignal) + ' dBm';
-    }
-
-    const percentage = Math.max(0, Math.min(100,
-        ((average + 100) / 60) * 100
-    ));
-
-    $('signalValue').textContent =
-        Math.round(average) + ' dBm';
-
-    $('signalBar').style.width = percentage + '%';
-    $('signalStatus').textContent = 'DETECTED';
-
-    if (average > -55) {
-        $('signalDescription').textContent =
-            'Very strong signal. Compare other headings to find the strongest reading.';
-    } else if (average > -70) {
-        $('signalDescription').textContent =
-            'Strong signal. Keep scanning around you.';
-    } else if (average > -85) {
-        $('signalDescription').textContent =
-            'Moderate signal. Try moving closer.';
-    } else {
-        $('signalDescription').textContent =
-            'Weak signal. Rotate slowly and compare readings.';
-    }
-}
-
-function handleAdvertisement(event) {
-
-    const name = event.device.name || 'Unnamed Bluetooth device';
-
-    const rssi = event.rssi;
-
-    const detail = Number.isFinite(rssi)
-        ? `RSSI ${rssi} dBm`
-        : 'Signal unavailable';
-
-    addEvent(name, detail, 'BLE');
-
-    if (Number.isFinite(rssi)) {
-        updateSignal(rssi);
-    }
-}
-
-async function scanBluetooth() {
-
-    if (!window.isSecureContext) {
-        showError('BLUETOOTH NEEDS HTTPS');
-        return;
-    }
-
-    if (!navigator.bluetooth) {
-        showError('WEB BLUETOOTH NOT SUPPORTED');
-        return;
-    }
-
-    $('bluetoothBtn').disabled = true;
-
-    try {
-
-        if (typeof navigator.bluetooth.requestLEScan === 'function') {
-
-            if (!bleScan || !bleScan.active) {
-
-                bleScan = await navigator.bluetooth.requestLEScan({
-                    acceptAllAdvertisements: true,
-                    keepRepeatedDevices: true
-                });
-            }
-
-            navigator.bluetooth.removeEventListener(
-                'advertisementreceived',
-                handleAdvertisement
-            );
-
-            navigator.bluetooth.addEventListener(
-                'advertisementreceived',
-                handleAdvertisement
-            );
-
-            $('scanTag').textContent = 'BLE LIVE';
-            $('radarNote').textContent = 'LISTENING FOR BLE';
-            setStatus('SCANNING');
-
-        } else {
-
-            const device = await navigator.bluetooth.requestDevice({
-                acceptAllDevices: true
-            });
-
-            addEvent(
-                device.name || 'Unnamed Bluetooth device',
-                'Device selected. Continuous RSSI is unavailable in this browser.',
-                'BLE'
-            );
-
-            $('scanTag').textContent = 'DEVICE SELECTED';
-            setStatus('CONNECTED');
-        }
-
-    } catch (error) {
-
-        showError(
-            error.message || 'BLUETOOTH ACCESS UNAVAILABLE'
-        );
-
-    } finally {
-
-        $('bluetoothBtn').disabled = false;
-    }
+  $('count').textContent = devices.size;
+  $('btCount').textContent = [...devices.values()].filter(x => x.side === 'BLE').length;
+  const list = $('events');
+  list.innerHTML = '';
+
+  if (!devices.size) {
+    list.innerHTML = '<div class="empty">No real detections yet. Start a scan and grant permission when prompted.</div>';
+    return;
+  }
+
+  [...devices.values()].sort((a,b) => b.time-a.time).slice(0,20).forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'event';
+    const left = document.createElement('div');
+    const name = document.createElement('div');
+    name.className = 'event-name';
+    name.textContent = d.name;
+    const detail = document.createElement('div');
+    detail.className = 'event-detail';
+    detail.textContent = d.detail;
+    left.append(name, detail);
+    const right = document.createElement('div');
+    right.className = 'event-side';
+    right.textContent = d.side;
+    row.append(left, right);
+    list.append(row);
+  });
 }
 
 function showError(message) {
-    $('radarNote').textContent = message;
-    setStatus('LIMITED');
+  $('radarNote').textContent = message;
+  setStatus('LIMITED');
+}
+
+function updateCompass(degrees) {
+  if (!Number.isFinite(degrees)) return;
+
+  degrees = (degrees + 360) % 360;
+  currentHeading = degrees;
+
+  $('heading').textContent = Math.round(degrees) + '°';
+  $('direction').textContent = getCardinal(degrees) + ' · ' + Math.round(degrees) + '°';
+  $('compassStatus').textContent = 'ACTIVE';
+
+  // North stays at the top. This arrow points in the direction the phone faces.
+  $('headingLine').style.transform =
+    `translate(-50%,-100%) rotate(${degrees}deg)`;
+
+  $('radarNote').textContent = 'PHONE FACING ' + getCardinal(degrees) + ' · ' + Math.round(degrees) + '°';
+}
+
+function handleOrientation(event) {
+  let heading = null;
+
+  // iOS provides a compass heading directly.
+  if (Number.isFinite(event.webkitCompassHeading)) {
+    heading = event.webkitCompassHeading;
+  } else if (Number.isFinite(event.alpha)) {
+    // Android/browser alpha is a fallback and may not be true-north calibrated.
+    heading = 360 - event.alpha;
+  }
+
+  if (heading !== null) updateCompass(heading);
+}
+
+async function enableCompass() {
+  try {
+    if (!('DeviceOrientationEvent' in window)) {
+      $('direction').textContent = 'Orientation sensors unavailable in this browser';
+      return;
+    }
+
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission !== 'granted') {
+        $('direction').textContent = 'Compass permission denied';
+        return;
+      }
+    }
+
+    if (orientationEventName) {
+      window.removeEventListener(orientationEventName, handleOrientation);
+    }
+
+    // Prefer absolute orientation when the browser exposes it.
+    orientationEventName = 'ondeviceorientationabsolute' in window
+      ? 'deviceorientationabsolute'
+      : 'deviceorientation';
+
+    window.addEventListener(orientationEventName, handleOrientation, true);
+    $('compassStatus').textContent = 'STARTING';
+    $('direction').textContent = 'Move your phone to check the compass';
+  } catch (error) {
+    $('direction').textContent = error.message || 'Compass permission unavailable';
+  }
+}
+
+function updateSignal(rssi) {
+  if (!Number.isFinite(rssi)) return;
+
+  signalReadings.push(rssi);
+  if (signalReadings.length > 8) signalReadings.shift();
+
+  const average = signalReadings.reduce((a,b) => a+b, 0) / signalReadings.length;
+  $('signalValue').textContent = Math.round(average) + ' dBm';
+  $('signalStatus').textContent = 'DETECTED';
+
+  const percentage = Math.max(0, Math.min(100, ((average + 100) / 60) * 100));
+  $('signalBar').style.width = percentage + '%';
+
+  if (bestSignal === null || average > bestSignal) {
+    bestSignal = average;
+    $('bestSignal').textContent = Math.round(bestSignal) + ' dBm';
+
+    // Record the phone's heading at the moment of the strongest RSSI sample.
+    // This is not a true transmitter bearing.
+    if (currentHeading !== null) {
+      bestHeading = currentHeading;
+      $('bestHeading').textContent =
+        getCardinal(bestHeading) + ' · ' + Math.round(bestHeading) + '°';
+      updateSignalMarker();
+    }
+  }
+
+  if (average > -55) {
+    $('signalDescription').textContent = 'Very strong reading. Compare other headings and positions.';
+  } else if (average > -70) {
+    $('signalDescription').textContent = 'Strong reading. Keep rotating slowly and comparing.';
+  } else if (average > -85) {
+    $('signalDescription').textContent = 'Moderate reading. Try moving closer and scanning again.';
+  } else {
+    $('signalDescription').textContent = 'Weak reading. Check for obstructions and try another position.';
+  }
+}
+
+function updateSignalMarker() {
+  if (bestHeading === null) {
+    $('signalMarker').style.display = 'none';
+    return;
+  }
+
+  // Green marker is a plotted heading sample on a north-up compass.
+  // Its radius is illustrative, not a distance estimate.
+  const radius = 35;
+  const radians = bestHeading * Math.PI / 180;
+  const x = 50 + Math.sin(radians) * radius;
+  const y = 50 - Math.cos(radians) * radius;
+
+  const marker = $('signalMarker');
+  marker.style.left = x + '%';
+  marker.style.top = y + '%';
+  marker.style.display = 'block';
+}
+
+function handleAdvertisement(event) {
+  const name = event.device.name || 'Unnamed Bluetooth device';
+  const rssi = event.rssi;
+  const detail = Number.isFinite(rssi) ? `RSSI ${rssi} dBm` : 'Signal level unavailable';
+
+  addEvent(name, detail, 'BLE');
+
+  if (Number.isFinite(rssi)) updateSignal(rssi);
+}
+
+async function scanBluetooth() {
+  if (!window.isSecureContext) {
+    showError('BLUETOOTH NEEDS HTTPS');
+    return;
+  }
+
+  if (!navigator.bluetooth) {
+    showError('WEB BLUETOOTH NOT SUPPORTED IN THIS BROWSER');
+    return;
+  }
+
+  $('bluetoothBtn').disabled = true;
+
+  try {
+    if (typeof navigator.bluetooth.requestLEScan === 'function') {
+      if (!bleScan || !bleScan.active) {
+        bleScan = await navigator.bluetooth.requestLEScan({
+          acceptAllAdvertisements: true,
+          keepRepeatedDevices: true
+        });
+      }
+
+      if (advertisementHandler) {
+        navigator.bluetooth.removeEventListener('advertisementreceived', advertisementHandler);
+      }
+
+      advertisementHandler = handleAdvertisement;
+      navigator.bluetooth.addEventListener('advertisementreceived', advertisementHandler);
+
+      $('scanTag').textContent = 'BLE LIVE';
+      $('radarNote').textContent = 'LISTENING FOR BLE ADVERTISEMENTS';
+      setStatus('SCANNING');
+    } else {
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: []
+      });
+
+      addEvent(
+        device.name || 'Unnamed Bluetooth device',
+        'Selected in browser chooser. This browser does not expose continuous RSSI scanning.',
+        'BLE'
+      );
+
+      $('scanTag').textContent = 'DEVICE SELECTED';
+      $('radarNote').textContent = 'DEVICE SELECTED · NO LIVE RSSI';
+      setStatus('CONNECTED');
+    }
+  } catch (error) {
+    if (error.name === 'NotFoundError') showError('NO DEVICE SELECTED');
+    else showError(error.message || 'BLUETOOTH ACCESS UNAVAILABLE');
+  } finally {
+    $('bluetoothBtn').disabled = false;
+  }
 }
 
 function enableLocation() {
+  if (!navigator.geolocation) {
+    showError('LOCATION API UNAVAILABLE');
+    return;
+  }
 
-    if (!navigator.geolocation) {
-        showError('LOCATION API UNAVAILABLE');
-        return;
-    }
+  $('locationBtn').disabled = true;
 
-    $('locationBtn').disabled = true;
+  watchId = navigator.geolocation.watchPosition(pos => {
+    lastPosition = pos;
+    $('gpsState').textContent = 'ON';
+    $('radarNote').textContent = 'GPS LOCATION AVAILABLE · NOT RF DIRECTION';
 
-    watchId = navigator.geolocation.watchPosition(
-
-        position => {
-
-            const c = position.coords;
-
-            $('gpsState').textContent = 'ON';
-
-            addEvent(
-                'Phone location',
-                `Accuracy ${Math.round(c.accuracy)} m · ${c.latitude.toFixed(4)}, ${c.longitude.toFixed(4)}`,
-                'GPS'
-            );
-
-            $('scanTag').textContent = 'LOCATION ON';
-            setStatus('ACTIVE');
-        },
-
-        error => {
-
-            showError(
-                error.code === 1
-                    ? 'LOCATION PERMISSION DENIED'
-                    : 'LOCATION UNAVAILABLE'
-            );
-
-            $('locationBtn').disabled = false;
-        },
-
-        {
-            enableHighAccuracy: true,
-            maximumAge: 5000,
-            timeout: 15000
-        }
+    const c = pos.coords;
+    addEvent(
+      'Phone location',
+      `Accuracy about ${Math.round(c.accuracy)} m · ${c.latitude.toFixed(4)}, ${c.longitude.toFixed(4)}`,
+      'GPS'
     );
+
+    $('scanTag').textContent = 'LOCATION ON';
+    setStatus('ACTIVE');
+  }, err => {
+    showError(err.code === 1 ? 'LOCATION PERMISSION DENIED' : 'LOCATION UNAVAILABLE');
+    $('locationBtn').disabled = false;
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 5000,
+    timeout: 15000
+  });
 }
 
-function resetBestSignal() {
-
-    bestSignal = null;
-    bestHeading = null;
-    signalReadings = [];
-    currentAverage = null;
-
-    $('bestSignal').textContent = '---';
-    $('bestHeading').textContent = '---';
-    $('signalValue').textContent = '--- dBm';
-    $('signalBar').style.width = '0%';
-    $('signalStatus').textContent = 'NO SIGNAL';
-    $('signalDescription').textContent =
-        'Waiting for new Bluetooth readings.';
-
-    $('signalMarker').style.display = 'none';
+function resetBestReading() {
+  bestSignal = null;
+  bestHeading = null;
+  signalReadings = [];
+  $('bestSignal').textContent = '---';
+  $('bestHeading').textContent = '---';
+  $('signalValue').textContent = '--- dBm';
+  $('signalBar').style.width = '0%';
+  $('signalStatus').textContent = 'NO SIGNAL';
+  $('signalDescription').textContent = 'Waiting for new Bluetooth advertisements.';
+  $('signalMarker').style.display = 'none';
 }
 
 $('bluetoothBtn').addEventListener('click', scanBluetooth);
 $('locationBtn').addEventListener('click', enableLocation);
 $('compassBtn').addEventListener('click', enableCompass);
-$('resetBtn').addEventListener('click', resetBestSignal);
+
+// Add a reset control without changing the original page layout.
+const resetButton = document.createElement('button');
+resetButton.textContent = 'Reset strongest reading';
+resetButton.style.width = '100%';
+resetButton.style.marginTop = '10px';
+resetButton.addEventListener('click', resetBestReading);
+$('signalDescription').parentElement.append(resetButton);
 
 setInterval(() => {
-    $('clock').textContent = new Date().toLocaleTimeString();
+  $('clock').textContent = new Date().toLocaleTimeString();
 }, 500);
-
 </script>
-
 </body>
 </html>
-```
