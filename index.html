@@ -246,7 +246,9 @@ function headingFromEuler(alpha,beta,gamma){
   const cY=Math.cos(y),sY=Math.sin(y),cZ=Math.cos(z),sZ=Math.sin(z),sX=Math.sin(x),cX=Math.cos(x);
   const Vx=-cZ*sY-sZ*sX*cY;
   const Vy=-sZ*sY+cZ*sX*cY;
-  let h=Math.atan2(Vx,Vy);
+  // The device's outward-facing axis points opposite the old X component.
+  // Negating it fixes the mirrored east/west heading on upright Android phones.
+  let h=Math.atan2(-Vx,Vy);
   if(h<0)h+=2*Math.PI;
   return h/r;
 }
@@ -317,19 +319,20 @@ function onAdvert(e){
   let d=bleDevs.get(id);
   if(!d){d={bins:new Array(36).fill(null),el:null,seen:0,pulseAt:0,rssi:null,name};bleDevs.set(id,d)}
   const now=Date.now();d.seen=now;d.name=name;
-  if(hasRssi)d.rssi=d.rssi===null?e.rssi:d.rssi*0.7+e.rssi*0.3;
+  if(hasRssi)d.rssi=d.rssi===null?e.rssi:d.rssi*0.45+e.rssi*0.55;
   if(!hasRssi||!compassOn||!gotReading){
     addEvent(name,hasRssi?`RSSI ${Math.round(e.rssi)} dBm · enable compass to locate`:'Signal level unavailable','BLE');
     if(!compassOn)$('radarNote').textContent='ENABLE COMPASS TO LOCATE SIGNALS';
     return;
   }
-  const h=norm(shown===null?heading:shown);
-  const bi=Math.floor(h/10)%36;
-  d.bins[bi]=d.bins[bi]===null?e.rssi:d.bins[bi]*0.6+e.rssi*0.4;
+  const h=norm(heading);
+  const bi=Math.floor(h/5)%72;
+  if(d.bins.length!==72)d.bins=new Array(72).fill(null);
+  d.bins[bi]=d.bins[bi]===null?e.rssi:d.bins[bi]*0.55+e.rssi*0.45;
   let max=-999,min=999,cov=0;
   d.bins.forEach(v=>{if(v!==null){cov++;if(v>max)max=v;if(v<min)min=v}});
   let sx=0,sy=0;
-  d.bins.forEach((v,i)=>{if(v===null)return;const w=Math.pow(10,(v-max)/10),a=(i*10+5)*Math.PI/180;sx+=w*Math.sin(a);sy+=w*Math.cos(a)});
+  d.bins.forEach((v,i)=>{if(v===null)return;const w=Math.pow(10,(v-max)/10),a=(i*5+2.5)*Math.PI/180;sx+=w*Math.sin(a);sy+=w*Math.cos(a)});
   const brg=norm(Math.atan2(sx,sy)*180/Math.PI);
   const conf=(cov>=8&&max-min>=6)?'GOOD':cov>=3?'FAIR':'ROUGH · KEEP TURNING';
   const t=Math.max(0,Math.min(1,(max+95)/60));
