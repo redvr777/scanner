@@ -94,7 +94,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <div class="controls">
         <button class="primary" id="bluetoothBtn">Scan Bluetooth</button>
         <button id="locationBtn">Enable GPS</button>
-        <button class="wide" id="compassBtn">Enable Compass</button>
+        <button id="compassBtn">Enable Compass</button>
+        <button id="networkBtn">Network Info</button>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><strong>NEAREST DEVICE</strong><span class="tag" id="nearTag">--</span></div>
+        <div id="nearest"><div class="empty">Add a Bluetooth device, then walk up to it. The strongest signal is the closest.</div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><strong>DETECTED ACTIVITY</strong><span class="tag" id="scanTag">NO SCAN</span></div>
@@ -103,7 +108,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <div class="panel">
         <div class="panel-head"><strong>CAPABILITIES & LIMITS</strong></div>
         <div class="notice">
-          <p><b>Bluetooth:</b> On supported browsers, you can choose a nearby Bluetooth device. Some browsers also support experimental BLE scanning. The browser does not expose every device automatically.</p>
+          <p><b>Bluetooth:</b> Browsers will not list every nearby device on their own. Tap Scan Bluetooth, pick a device from the chooser (it shows names), and the app then tracks it live. Tap again to add more devices. Many devices hide their name for privacy, so some show as Unnamed.</p>
           <p><b>GPS:</b> Reports your phone's location only. It does not reveal GPS satellite direction or signal strength.</p>
           <p><b>Compass:</b> Uses your phone's magnetometer. The arrow at the top shows the direction you're facing (the back of the phone when held upright, the top edge when held flat). Calibrate by waving the phone in a figure-8 if it drifts.</p>
           <p><b>Wi-Fi / cellular / general RF:</b> Mobile websites cannot scan Wi-Fi channels, identify cell towers, or measure arbitrary radio frequencies. Those require native software or external radio hardware.</p>
@@ -148,30 +153,50 @@ function ripple(){
   setTimeout(()=>edge.classList.remove('active'),1900);
 }
 function addBlip(){
-  const radar=$('radar');const b=document.createElement('i');b.className='blip';
-  const angle=Math.random()*Math.PI*2, radius=20+Math.random()*33;
-  b.style.left=(50+Math.cos(angle)*radius)+'%';b.style.top=(50+Math.sin(angle)*radius)+'%';
-  radar.append(b);setTimeout(()=>b.remove(),6000);ripple();
+  const b=document.createElement('i');b.className='mark pulse';
+  const deg=(compassOn&&gotReading)?(shown===null?heading:shown):0;
+  const brg=deg*Math.PI/180, r=18+Math.random()*28;
+  b.style.left=(50+Math.sin(brg)*r)+'%';b.style.top=(50-Math.cos(brg)*r)+'%';
+  $('dial').append(b);setTimeout(()=>b.remove(),6000);ripple();
 }
 function showError(err){
   $('radarNote').textContent=err;
   setStatus('LIMITED');
+}
+const watched=new Set();
+async function watchDevice(device){
+  const id=device.id||device.name||String(Math.random());
+  if(watched.has(id))return true;
+  if(typeof device.watchAdvertisements!=='function')return false;
+  device.addEventListener('advertisementreceived',onAdvert);
+  await device.watchAdvertisements();
+  watched.add(id);return true;
 }
 async function scanBluetooth(){
   if(!window.isSecureContext){showError('BLUETOOTH NEEDS HTTPS');return}
   if(!navigator.bluetooth){showError('WEB BLUETOOTH NOT SUPPORTED IN THIS BROWSER');return}
   $('bluetoothBtn').disabled=true;
   try{
-    if(typeof navigator.bluetooth.requestLEScan==='function'){
+    if(typeof navigator.bluetooth.requestLEScan==='function'&&!bleScan){
       bleScan=await navigator.bluetooth.requestLEScan({acceptAllAdvertisements:true,keepRepeatedDevices:true});
-      navigator.bluetooth.addEventListener('advertisementreceived',e=>{
-        onAdvert(e);
-      });
+      navigator.bluetooth.addEventListener('advertisementreceived',onAdvert);
       $('scanTag').textContent='BLE LIVE';$('radarNote').textContent='TURN SLOWLY 360° TO LOCATE SIGNALS';setStatus('SCANNING');
+    }else if(bleScan){
+      $('radarNote').textContent='ALREADY SCANNING ALL BLE ADVERTISEMENTS';
     }else{
-      const device=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[]});
-      addEvent(device.name||'Unnamed Bluetooth device','Selected in browser device chooser; not a direction or distance reading','BLE');
-      addBlip();$('scanTag').textContent='DEVICE SELECTED';$('radarNote').textContent='DEVICE ACCESS GRANTED';setStatus('CONNECTED');
+      const device=await navigator.bluetooth.requestDevice({acceptAllDevices:true});
+      const name=device.name||'Unnamed device';
+      let live=false;
+      try{live=await watchDevice(device)}catch(_){}
+      if(live){
+        addEvent(name,'Tracking live · turn slowly or walk up to it','BLE');
+        $('scanTag').textContent='TRACKING '+watched.size;
+        $('radarNote').textContent='TRACKING · TURN SLOWLY 360° OR WALK UP TO IT';
+        $('bluetoothBtn').textContent='Add Another Device';setStatus('SCANNING');
+      }else{
+        addEvent(name,'Selected · this browser gives no live signal strength','BLE');addBlip();
+        $('scanTag').textContent='DEVICE SELECTED';$('radarNote').textContent='NO LIVE SIGNAL DATA IN THIS BROWSER';setStatus('CONNECTED');
+      }
     }
   }catch(e){
     if(e.name==='NotFoundError')showError('NO DEVICE SELECTED');
@@ -289,14 +314,15 @@ function onAdvert(e){
   const id=e.device.id||e.device.name||'unknown';
   const name=e.device.name||('Unnamed device '+String(id).slice(-4));
   const hasRssi=Number.isFinite(e.rssi);
-  if(!hasRssi||!compassOn||!gotReading){
-    addEvent(name,hasRssi?`RSSI ${e.rssi} dBm · enable compass to locate`:'Signal level unavailable','BLE');
-    if(!compassOn)$('radarNote').textContent='ENABLE COMPASS TO LOCATE SIGNALS';
-    addBlip();return;
-  }
   let d=bleDevs.get(id);
-  if(!d){d={bins:new Array(36).fill(null),el:null,seen:0,pulseAt:0};bleDevs.set(id,d)}
-  const now=Date.now();d.seen=now;
+  if(!d){d={bins:new Array(36).fill(null),el:null,seen:0,pulseAt:0,rssi:null,name};bleDevs.set(id,d)}
+  const now=Date.now();d.seen=now;d.name=name;
+  if(hasRssi)d.rssi=d.rssi===null?e.rssi:d.rssi*0.7+e.rssi*0.3;
+  if(!hasRssi||!compassOn||!gotReading){
+    addEvent(name,hasRssi?`RSSI ${Math.round(e.rssi)} dBm · enable compass to locate`:'Signal level unavailable','BLE');
+    if(!compassOn)$('radarNote').textContent='ENABLE COMPASS TO LOCATE SIGNALS';
+    return;
+  }
   const h=norm(shown===null?heading:shown);
   const bi=Math.floor(h/10)%36;
   d.bins[bi]=d.bins[bi]===null?e.rssi:d.bins[bi]*0.6+e.rssi*0.4;
@@ -307,7 +333,7 @@ function onAdvert(e){
   const brg=norm(Math.atan2(sx,sy)*180/Math.PI);
   const conf=(cov>=8&&max-min>=6)?'GOOD':cov>=3?'FAIR':'ROUGH · KEEP TURNING';
   const t=Math.max(0,Math.min(1,(max+95)/60));
-  const r=46-t*36;                                   // stronger signal = closer to center
+  const r=46-t*36;
   if(!d.el){d.el=document.createElement('i');d.el.className='mark';$('dial').append(d.el)}
   d.el.style.left=(50+Math.sin(brg*Math.PI/180)*r)+'%';
   d.el.style.top=(50-Math.cos(brg*Math.PI/180)*r)+'%';
@@ -317,6 +343,25 @@ function onAdvert(e){
 }
 setInterval(()=>{const now=Date.now();bleDevs.forEach((d,id)=>{const age=now-d.seen;if(age>60000){if(d.el)d.el.remove();bleDevs.delete(id)}else if(d.el)d.el.classList.toggle('stale',age>15000)})},2000);
 
+setInterval(()=>{
+  const now=Date.now();let best=null;
+  bleDevs.forEach(d=>{if(d.rssi!==null&&now-d.seen<6000&&(best===null||d.rssi>best.rssi))best=d});
+  if(!best)return;
+  const lvl=best.rssi>-50?'VERY CLOSE':best.rssi>-65?'NEAR':best.rssi>-80?'IN RANGE':'FAR';
+  $('nearTag').textContent=lvl;
+  const box=$('nearest');box.innerHTML='';
+  const n=document.createElement('div');n.className='event-name';n.style.fontSize='18px';n.textContent=best.name;
+  const dt=document.createElement('div');dt.className='event-detail';dt.textContent='RSSI '+Math.round(best.rssi)+' dBm · rough proximity from signal strength';
+  box.append(n,dt);
+},700);
+function showNetwork(){
+  const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  if(!c){showError('NETWORK INFO NOT EXPOSED BY THIS BROWSER');return}
+  const upd=()=>addEvent('Current connection',[c.type,c.effectiveType,c.downlink!=null?c.downlink+' Mbps':null,c.rtt!=null?c.rtt+' ms':null].filter(Boolean).join(' · ')||'No details','NET');
+  upd();if(c.addEventListener)c.addEventListener('change',upd);
+  $('networkBtn').disabled=true;
+}
+$('networkBtn').addEventListener('click',showNetwork);
 $('bluetoothBtn').addEventListener('click',scanBluetooth);
 $('locationBtn').addEventListener('click',enableLocation);
 $('compassBtn').addEventListener('click',enableCompass);
